@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant - Orders</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">🍽 Restaurant</h1>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/menu">Menu</a></li>
+                <li><a href="/cart">Cart <span id="cart-count" class="badge">0</span></a></li>
+                <li><a href="/orders" class="active">Orders</a></li>
+                <li><a href="/login">Login</a></li>
+                <li><a href="/signup">Signup</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="orders-section">
+        <div class="container">
+            <h1>Orders</h1>
+            
+            {% if orders %}
+            <div class="orders-list">
+                {% for order in orders %}
+                <div class="order-card">
+                    <div class="order-header">
+                        <div>
+                            <h3>Order #{{ order['id'] }}</h3>
+                            <p class="order-date">{{ order['created_at'] }}</p>
+                        </div>
+                        <span class="status-badge status-{{ order['status'] }}">{{ order['status'] }}</span>
+                    </div>
+                    <div class="order-details">
+                        <p><strong>Customer:</strong> {{ order['customer_name'] }}</p>
+                        <p><strong>Phone:</strong> {{ order['customer_phone'] }}</p>
+                        {% if order['customer_address'] %}
+                        <p><strong>Address:</strong> {{ order['customer_address'] }}</p>
+                        {% endif %}
+                        <p><strong>Total:</strong> ${{ "%.2f"|format(order['total_amount']) }}</p>
+                    </div>
+                    <div class="order-actions">
+                        <button class="btn btn-small view-details-btn" data-order-id="{{ order['id'] }}">View Details</button>
+                        <select class="status-select" data-order-id="{{ order['id'] }}">
+                            <option value="">Update Status</option>
+                            <option value="pending" {% if order['status'] == 'pending' %}selected{% endif %}>Pending</option>
+                            <option value="preparing" {% if order['status'] == 'preparing' %}selected{% endif %}>Preparing</option>
+                            <option value="ready" {% if order['status'] == 'ready' %}selected{% endif %}>Ready</option>
+                            <option value="delivered" {% if order['status'] == 'delivered' %}selected{% endif %}>Delivered</option>
+                            <option value="cancelled" {% if order['status'] == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                        </select>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>No orders yet</p>
+                <a href="/menu" class="btn btn-primary">Start Ordering</a>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <div id="order-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="modal-close">&times;</span>
+            <h2>Order Details</h2>
+            <div id="order-details-content"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Restaurant. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle view details buttons
+            document.querySelectorAll('.view-details-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const orderId = this.dataset.orderId;
+                    viewOrderDetails(orderId);
+                });
+            });
+
+            // Handle status select changes
+            document.querySelectorAll('.status-select').forEach(select => {
+                select.addEventListener('change', function() {
+                    const orderId = this.dataset.orderId;
+                    const status = this.value;
+                    if (status) {
+                        updateStatus(orderId, status);
+                    }
+                });
+            });
+        });
+
+        function viewOrderDetails(orderId) {
+            fetch(`/api/order/${orderId}`)
+                .then(response => response.json())
+                .then(data => {
+                    let itemsHtml = '<h3>Items:</h3><ul class="order-items-list">';
+                    data.items.forEach(item => {
+                        itemsHtml += `
+                            <li>
+                                <span>${item.item_name} x ${item.quantity}</span>
+                                <span>$${(item.price * item.quantity).toFixed(2)}</span>
+                            </li>
+                        `;
+                    });
+                    itemsHtml += '</ul>';
+                    
+                    document.getElementById('order-details-content').innerHTML = itemsHtml;
+                    document.getElementById('order-modal').style.display = 'block';
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function updateStatus(orderId, status) {
+            fetch(`/api/order/${orderId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ status: status })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function closeModal() {
+            document.getElementById('order-modal').style.display = 'none';
+        }
+
+        // Modal close button click
+        document.getElementById('modal-close').addEventListener('click', closeModal);
+
+        // Close modal on outside click
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('order-modal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        });
+
+        // Update cart count on page load
+        updateCartCount();
+    </script>
+</body>
+</html>

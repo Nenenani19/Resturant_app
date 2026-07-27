@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant - Cart</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">🍽 Restaurant</h1>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/menu">Menu</a></li>
+                <li><a href="/cart" class="active">Cart <span id="cart-count" class="badge">{{ cart|length }}</span></a></li>
+                <li><a href="/orders">Orders</a></li>
+                <li><a href="/login">Login</a></li>
+                <li><a href="/signup">Signup</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="cart-section">
+        <div class="container">
+            <h1>Shopping Cart</h1>
+            
+            {% if cart %}
+            <div class="cart-container">
+                <div class="cart-items">
+                    {% for item in cart %}
+                    <div class="cart-item" id="cart-item-{{ item['id'] }}">
+                        <div class="cart-item-info">
+                            <h3>{{ item['name'] }}</h3>
+                            <p class="price">${{ "%.2f"|format(item['price']) }}</p>
+                        </div>
+                        <div class="cart-item-actions">
+                            <div class="quantity-control">
+                                <button class="quantity-btn decrease" 
+                                    data-item-id="{{ item['id'] }}" 
+                                    data-quantity="{{ item['quantity'] - 1 }}">-</button>
+                                <span>{{ item['quantity'] }}</span>
+                                <button class="quantity-btn increase" 
+                                    data-item-id="{{ item['id'] }}" 
+                                    data-quantity="{{ item['quantity'] + 1 }}">+</button>
+                            </div>
+                            <span class="item-total">${{ "%.2f"|format(item['price'] * item['quantity']) }}</span>
+                            <button class="btn-remove" data-item-id="{{ item['id'] }}">Remove</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="cart-summary">
+                    <h2>Order Summary</h2>
+                    <div class="summary-row">
+                        <span>Subtotal:</span>
+                        <span>${{ "%.2f"|format(total) }}</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Total:</span>
+                        <span>${{ "%.2f"|format(total) }}</span>
+                    </div>
+
+                    <form id="checkout-form" class="checkout-form">
+                        <h3>Customer Details</h3>
+                        <input type="text" id="customer-name" placeholder="Full Name" required>
+                        <input type="tel" id="customer-phone" placeholder="Phone Number" required>
+                        <textarea id="customer-address" placeholder="Delivery Address" rows="3"></textarea>
+                        <button type="submit" class="btn btn-primary">Place Order</button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-cart">
+                <p>Your cart is empty</p>
+                <a href="/menu" class="btn btn-primary">Browse Menu</a>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <div id="toast" class="toast"></div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Restaurant. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle quantity buttons
+            document.querySelectorAll('.quantity-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const itemId = this.dataset.itemId;
+                    const quantity = parseInt(this.dataset.quantity);
+                    updateQuantity(itemId, quantity);
+                });
+            });
+
+            // Handle remove buttons
+            document.querySelectorAll('.btn-remove').forEach(button => {
+                button.addEventListener('click', function() {
+                    const itemId = this.dataset.itemId;
+                    removeFromCart(itemId);
+                });
+            });
+        });
+
+        function updateQuantity(itemId, quantity) {
+            if (quantity < 1) {
+                removeFromCart(itemId);
+                return;
+            }
+
+            fetch('/api/cart', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'update',
+                    item_id: itemId,
+                    quantity: quantity
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            });
+        }
+
+        function removeFromCart(itemId) {
+            fetch('/api/cart', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'remove',
+                    item_id: itemId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            });
+        }
+
+        document.getElementById('checkout-form')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('customer-name').value;
+            const phone = document.getElementById('customer-phone').value;
+            const address = document.getElementById('customer-address').value;
+
+            fetch('/api/order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: name,
+                    phone: phone,
+                    address: address
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Order placed successfully! Order ID: ' + data.order_id);
+                    window.location.href = '/orders';
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

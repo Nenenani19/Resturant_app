@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant - Menu</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">🍽 Restaurant</h1>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/menu" class="active">Menu</a></li>
+                <li><a href="/cart">Cart <span id="cart-count" class="badge">0</span></a></li>
+                <li><a href="/orders">Orders</a></li>
+                <li><a href="/login">Login</a></li>
+                <li><a href="/signup">Signup</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="menu-section">
+        <div class="container">
+            <h1>Our Menu</h1>
+            
+            {% for category in categories %}
+            <div class="category-section">
+                <h2 class="category-title">{{ category['name'] }}</h2>
+                <div class="menu-grid">
+                    {% for item in items %}
+                        {% if item['category_id'] == category['id'] %}
+                        <div class="menu-card">
+                            <div class="menu-card-image">
+                                <img src="{{ url_for('static', filename=item['image_url']) }}" alt="{{ item['name'] }}" loading="lazy" onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/placeholder.svg') }}';">
+                            </div>
+                            <div class="menu-card-content">
+                                <h3>{{ item['name'] }}</h3>
+                                <p class="description">{{ item['description'] }}</p>
+                                <div class="menu-card-footer">
+                                    <span class="price">${{ "%.2f"|format(item['price']) }}</span>
+                                    <button class="btn btn-small add-to-cart-btn" 
+                                        data-id="{{ item['id'] }}"
+                                        data-name="{{ item['name'] }}"
+                                        data-price="{{ item['price'] }}">
+                                        Add to Cart
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <div id="toast" class="toast"></div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Restaurant. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.add-to-cart-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const itemId = this.dataset.id;
+                    const itemName = this.dataset.name;
+                    const price = this.dataset.price;
+                    addToCart(itemId, itemName, price);
+                });
+            });
+        });
+
+        function addToCart(itemId, itemName, price) {
+            fetch('/api/cart', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'add',
+                    item_id: itemId,
+                    quantity: 1
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateCartCount();
+                    showToast(`${itemName} added to cart!`);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Update cart count on page load
+        updateCartCount();
+    </script>
+</body>
+</html>
