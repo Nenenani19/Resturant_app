@@ -1,2 +1,2 @@
-Flask
-gunicorn
+streamlit==1.61.1
+Werkzeug==2.2.3
